@@ -241,5 +241,28 @@ namespace Essentials.Commands
         {
             return grid.GetFatBlocks().OfType<MyShipController>().Any(b => b.Pilot != null);
         }
+
+        [Condition("blocksubtypedistance", helpText: "Finds grids with blocks of a given subtype within the specified distance.")]
+        public static bool BlockSubTypeDistance(MyCubeGrid grid, string subtype, double distance)
+        {
+            double squaredDistance = distance * distance;
+
+                foreach (var block in grid.GetFatBlocks())
+                    {
+                        if (block.BlockDefinition.SubtypeName.Equals(subtype, StringComparison.OrdinalIgnoreCase))
+                        {
+                            // Calculate squared distance to the block
+                            double blockDistanceSquared = Vector3D.DistanceSquared(block.PositionComp.GetPosition(), grid.PositionComp.GetPosition());
+
+                            // Check if the block is within the specified distance
+                            if (blockDistanceSquared <= squaredDistance)
+                            {
+                                return true;
+                            }
+                        }
+                    }
+
+                    return false;
+        }
     }
 }
