@@ -1,4 +1,4 @@
-﻿using Sandbox.Game.Entities;
+using Sandbox.Game.Entities;
 using Sandbox.Game.EntityComponents;
 using Sandbox.Game.World;
 using System;
@@ -41,7 +41,7 @@ namespace Essentials.Commands
         }
 
         [Condition("hasgridtype", helpText: "Finds grids with the specified grid type (large | small | ship | static).")]
-        public static bool HasGridType(MyCubeGrid grid, string gridType) 
+        public static bool HasGridType(MyCubeGrid grid, string gridType)
         {
             if (string.IsNullOrEmpty(gridType))
                 return false;
@@ -49,13 +49,13 @@ namespace Essentials.Commands
             if (string.Compare(gridType, "static", StringComparison.InvariantCultureIgnoreCase) == 0)
                 return grid.IsStatic;
 
-            if (string.Compare(gridType, "ship", StringComparison.InvariantCultureIgnoreCase) == 0) 
+            if (string.Compare(gridType, "ship", StringComparison.InvariantCultureIgnoreCase) == 0)
                 return !grid.IsStatic;
 
             if (string.Compare(gridType, "large", StringComparison.InvariantCultureIgnoreCase) == 0)
                 return grid.GridSizeEnum == VRage.Game.MyCubeSize.Large;
 
-            if (string.Compare(gridType, "small", StringComparison.InvariantCultureIgnoreCase) == 0) 
+            if (string.Compare(gridType, "small", StringComparison.InvariantCultureIgnoreCase) == 0)
                 return grid.GridSizeEnum == VRage.Game.MyCubeSize.Small;
 
             // In all other cases, just return false.
@@ -159,7 +159,7 @@ namespace Essentials.Commands
         public static bool CenterDistanceLessThan(MyCubeGrid grid, double dist)
         {
             dist *= dist;
-            
+
             return Vector3D.DistanceSquared(Vector3D.Zero, grid.PositionComp.GetPosition()) < dist;
         }
 
@@ -178,7 +178,7 @@ namespace Essentials.Commands
                 return grid.BigOwners.Count > 0 &&
                        MySession.Static.Factions.IsNpcFaction(grid.BigOwners.FirstOrDefault());
             }
-            
+
 
             if (string.Compare(str, "pirates", StringComparison.InvariantCultureIgnoreCase) == 0)
             {
@@ -210,7 +210,7 @@ namespace Essentials.Commands
 
             return grid.BigOwners.Contains(identityId);
         }
-        
+
 
         [Condition("hastype", "notype", "Finds grids containing blocks of the given type.")]
         public static bool BlockType(MyCubeGrid grid, string str)
@@ -223,13 +223,13 @@ namespace Essentials.Commands
         {
             return grid.HasBlockTypeFast(str);
         }
-        
+
         [Condition("hassubtype", "nosubtype", "Finds grids containing blocks of the given subtype.")]
         public static bool BlockSubType(MyCubeGrid grid, string str)
         {
             return grid.HasBlockSubtype(str);
         }
-        
+
         [Condition("hassubtype-fast", "nosubtype-fast", "Finds grids containing blocks of the given subtype.")]
         public static bool BlockSubTypeFast(MyCubeGrid grid, string str)
         {
@@ -242,27 +242,48 @@ namespace Essentials.Commands
             return grid.GetFatBlocks().OfType<MyShipController>().Any(b => b.Pilot != null);
         }
 
-        [Condition("blocksubtypedistance", helpText: "Finds grids with blocks of a given subtype within the specified distance.")]
-        public static bool BlockSubTypeDistance(MyCubeGrid grid, string subtype, double distance)
+        [Condition("ScrapBeaconDistance", helpText: "Checks if a grid is farther than the specified distance away from ScrapBeacon.")]
+        public static bool ScrapBeaconDistance(MyCubeGrid grid, double distance)
         {
-            double squaredDistance = distance * distance;
+            distance *= distance; // Square the distance for comparison with squared distances
+            string[] blockSubtypes = { "LargeBlockScrapBeacon", "SmallBlockScrapBeacon" }; // Hardcoded block subtypes
 
-                foreach (var block in grid.GetFatBlocks())
+            foreach (var otherGrid in MyEntities.GetEntities().OfType<MyCubeGrid>())
+            {
+                // Ignore the current grid
+                if (otherGrid == grid)
+                    continue;
+
+                // Check if the other grid has any of the specified block subtypes
+                bool hasBlockSubtype = otherGrid.GetBlocks().Any(block =>
+                    block.BlockDefinition != null &&
+                    blockSubtypes.Contains(block.BlockDefinition.Id.SubtypeName, StringComparer.OrdinalIgnoreCase));
+
+                if (hasBlockSubtype)
+                {
+                    // Calculate distance between the other grid's position and the current grid's position
+                    double gridDistanceSquared = Vector3D.DistanceSquared(otherGrid.PositionComp.GetPosition(), grid.PositionComp.GetPosition());
+
+                    // Check if the other grid is closer than the specified distance
+                    if (gridDistanceSquared <= distance)
                     {
-                        if (block.BlockDefinition.SubtypeName.Equals(subtype, StringComparison.OrdinalIgnoreCase))
-                        {
-                            // Calculate squared distance to the block
-                            double blockDistanceSquared = Vector3D.DistanceSquared(block.PositionComp.GetPosition(), grid.PositionComp.GetPosition());
-
-                            // Check if the block is within the specified distance
-                            if (blockDistanceSquared <= squaredDistance)
-                            {
-                                return true;
-                            }
-                        }
+                        // If any grid with the specified block subtypes is found within the distance, return false
+                        return false;
                     }
+                }
+            }
 
-                    return false;
+            // Check if the current grid contains any of the specified block subtypes
+            bool hasSelfBlockSubtype = grid.GetBlocks().Any(block =>
+                block.BlockDefinition != null &&
+                blockSubtypes.Contains(block.BlockDefinition.Id.SubtypeName, StringComparer.OrdinalIgnoreCase));
+
+            // If the current grid contains any of the specified block subtypes, return false
+            if (hasSelfBlockSubtype)
+                return false;
+
+            // If no grid with any of the specified block subtypes is found within the distance, and the current grid does not contain any of the block subtypes, return true
+            return true;
         }
     }
 }
